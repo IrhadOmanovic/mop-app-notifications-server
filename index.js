@@ -58,4 +58,4 @@ io.on('connection', (socket) => {
   })
 })
 
-io.listen(80)
+io.listen(process.env.PORT || 80)
