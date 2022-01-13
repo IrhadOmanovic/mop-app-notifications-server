@@ -8,13 +8,32 @@ const io = new Server({
 })
 
 let onlineUsers = []
+let userNotifications = []
 
 const addNewUser = ({userId, socketId, email}) => {
   if (!onlineUsers.some((user) => user.userId === userId)){
-    onlineUsers.push({userId, socketId, email})
+    onlineUsers.push({userId, socketId, email, notifications : []})
   }
 }
 
+const getUserNotifications = (userId) => {
+  return userNotifications.find(item => item.userId === userId)?.notifications || []
+}
+
+const addNewNotificationToUser = (userId, notification) => {
+  const index = userNotifications.findIndex(user => user.userId === userId)
+  if (index === -1) {
+    userNotifications.push({userId : userId, notifications: [notification]})
+  } else {
+    userNotifications[index].notifications.push(notification)
+  }
+}
+
+const deleteNotification = ({userId, indexNotification}) => {
+  const index = userNotifications.findIndex(user => user.userId === userId)
+
+  userNotifications[index].notifications.splice(indexNotification, 1)
+}
 const deleteUser = ({socketId}) => {
   onlineUsers = onlineUsers.filter(user => user.socketId !== socketId)
 }
@@ -30,6 +49,12 @@ io.on('connection', (socket) => {
       userId: userId,
       email: email
     })
+
+    io.to(socket.id).emit("getNotifications", getUserNotifications(userId))
+  })
+
+  socket.on("deleteNotification", ({userId, indexNotification}) => {
+    deleteNotification({userId, indexNotification})
   })
 
   socket.on("sendNotification", ({senderId, recieverId, type, questionId, email}) => {
@@ -40,13 +65,18 @@ io.on('connection', (socket) => {
     const sender = getUser({
       userId: senderId
     })
-    io.to(reciever.socketId).emit("getNotifications", {
+
+    const notification = {
       senderId,
       type,
       senderEmail: sender.email,
       questionId: questionId,
       email: email
-    })
+    }
+
+    addNewNotificationToUser(recieverId, notification)
+
+    io.to(reciever.socketId).emit("getNotifications", getUserNotifications(recieverId))
   })
 
   // console.log('Someone has connected')
